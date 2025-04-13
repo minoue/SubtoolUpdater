@@ -1,0 +1,239 @@
+// Define and initialize variables.
+[VarDef, subtoolName, ""]
+[VarDef, subtoolIndex, 0]
+[VarDef, subtoolPath, ""]
+[VarDef, subtoolFullPath, ""]
+[VarDef, numSubtools, 0]
+[VarDef, loopIndex, 0]
+[VarDef, dllPath, ""]
+[VarDef, objDllPath, ""]
+[VarDef, folderName, ""]
+[VarDef, err, 0]
+[VarDef, isMac, 0]
+[VarDef, numVertsTool, 0]
+[VarDef, numVertsObj, 2]
+[VarDef, continue, 0]
+[VarDef, objFound, 0]
+
+[VarDef, suffixList(4), ""]
+[VarSet, suffixList(0), "GEP"]
+[VarSet, suffixList(1), "GES"]
+[VarSet, suffixList(2), "GED"]
+[VarSet, suffixList(3), "GEV"]
+
+
+// IMPORTANT
+// Put ZFileUtils folder to the same directory as this script
+[RoutineDef, CheckSystem,
+
+    [VarSet, isMac, [ZBrushInfo, 6]]
+    [VarSet, dllPath, "ZBRUSH_ZSTARTUP/ZPlugs64/SubtoolUpdater_2022/ZFileUtils/ZFileUtils64.dll"]
+    [VarSet, objDllPath, "ZBRUSH_ZSTARTUP/ZPlugs64/SubtoolUpdater_2022/objInfo.dll"]
+	[If, [FileExists, [Var, dllPath]],
+        // if exist, do nothing
+	, // else no DLL.
+		[Note,"\Cff9923Note :\Cc0c0c0 The \Cff9923 ZFileUtils plugin \CffffffDLL\Cc0c0c0 could not be found at the correct location.  Please re-install the plugin, making sure the relevant files and folders are in the \CffffffZStartup/ZPlugs\Cc0c0c0 folder."]
+		[Exit]
+	]
+]//end routine
+[RoutineCall, CheckSystem]
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~~ INTERFACE
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+[ISubPalette,"ZPlugin:SubtoolUpdater"]
+
+[RoutineDef, findObjFile,
+    // commands
+    
+    [VarSet, nameWithoutSuffix,
+        [StrExtract, subtoolName, 0, [StrLength, subtoolName]-5 ]
+    ]  
+    [VarSet, fullPathWithoutSuffix, [StrMerge, folderName, "\", nameWithoutSuffix]]
+
+    [VarSet, suffixIndex, 0]
+    [Loop, [VarSize, suffixList],
+        [VarSet, suffix, [Var, suffixList(suffixIndex)]]
+
+        [VarSet, fullPathTemp, [StrMerge, fullPathWithoutSuffix, suffix, ".obj"]]
+
+        [If, [FileExists, fullPathTemp],
+            // if mesh found
+            [VarSet, objFound, 1]
+            [VarSet, subtoolFullPath, fullPathTemp]
+            [LoopExit]
+            , // else
+            [VarSet, objFound, 0]
+        ]
+        [VarInc, suffixIndex]
+    ]
+]
+
+[RoutineDef, importObj,
+    // Sanity check
+
+    // Get number of vertices of the current subtool
+    [Mesh3DGet, 0, , , numVertsTool]
+
+    // Get number of vertices of the obj file
+    [VarSet, numVertsObj,
+        [FileExecute, [Var, objDllPath], "GetNumVertices", subtoolFullPath]
+    ]
+
+    // If number of vertices are same, import obj file
+    [If, numVertsTool == numVertsObj,					
+        [FileNameSetNext, subtoolFullPath]
+        [IPress, Tool:Import]
+        , // else if Vertex count is different
+        [VarSet, continue, [MessageYesNo, [StrMerge, subtoolName, " : Vertex count is different. Do you want to import anyway?"]]]
+        [If, continue,
+            // load anyway
+            [FileNameSetNext, subtoolFullPath]
+            [IPress, Tool:Import]
+            ,
+            // else
+        ]
+    ] // endif
+]
+
+[RoutineDef, GetFolderPath,
+    //create memblock to get the path
+    [If, [MemGetSize, MC_FolderPath],,
+        [MemCreate, MC_FolderPath, 256, 0]
+    ]
+
+    [VarSet, err, 
+        [FileExecute, [Var,dllPath], ChooseFolder , , , MC_FolderPath]
+    ]
+
+    [If, err,
+        [Note, err]//function will return -1 if no folder chosen
+        [Exit]
+        ,
+        // Copy path from memblock to variable
+        [MemReadString, MC_FolderPath, folderName, 0, 1]
+
+        //show the selected folder path
+        // [Note, folderName] //Notes do not display backslashes
+
+        //*** when using the path remember to append a slash before the file name!***
+        //*** for example:
+        //[VarSet,fileName,"My_Model.ztl"]
+        //[FileNameSetNext,[StrMerge,folderPath,"/",fileName]]
+    ]
+    [MemDelete, MC_FolderPath]
+]
+
+// Update only current subtool.
+// If there is an obj file with same name as subtools, imort it.  
+// http://docs.pixologic.com/user-guide/customizing-zbrush/zscripting/zfileutils/#selectFolder
+[IButton, "ZPlugin:SubtoolUpdater:Update current Subtool", "",
+    
+    [RoutineCall, GetFolderPath]
+    
+    // Get current subtool
+    [VarSet, subtoolName, [IGetTitle, Tool:Subtool:ItemInfo]]
+    
+    [RoutineCall, findObjFile]
+
+    // If file exists, import obj file
+    [If, objFound,
+        [RoutineCall, importObj]
+        , //else
+        // [Note, "obj not found"]
+    ] // end if
+    ,
+    0, // Initially Disabled? (0:Enabled(ByDefault) NonZero:Disabled)
+    1, // 0:AutoWidth NonZero:Specified width)
+    , // Optional hotkey
+    , // Optional button icon (.psd .bmp + .pct for Mac Systems)
+    32 // Button height in pixels (0:AutoHeight NonZero:Specified height)
+] // end button
+
+// Update all subtools
+// If there are obj files with same names as subtools in the selected folder,
+// import all of them.
+[IButton, "ZPlugin:SubtoolUpdater:Update All Subtools", "",
+    
+    [RoutineCall, GetFolderPath]
+
+    // Loop over subtools
+    // Get number of subtools
+    [VarSet, numSubtools, [SubToolGetCount]]
+    
+    // Init loop counter
+    [VarSet, loopIndex, 0]
+
+    [If, numSubtools > 0,
+        [Loop, numSubtools,
+            
+            // Select subtool
+            [SubToolSelect, loopIndex]
+
+            // Get current subtool name/path
+            [VarSet, subtoolName, [IGetTitle, Tool:Subtool:ItemInfo]]
+
+            [RoutineCall, findObjFile]
+
+			// If file exists, import obj file
+            [If, objFound,
+                [RoutineCall, importObj]
+            ]
+            [VarInc, loopIndex]
+        ] // end loop
+    ] // end if
+    ,
+    0, // Initially Disabled? (0:Enabled(ByDefault) NonZero:Disabled)
+    1, // 0:AutoWidth NonZero:Specified width)
+    , // Optional hotkey
+    , // Optional button icon (.psd .bmp + .pct for Mac Systems)
+    32 // Button height in pixels (0:AutoHeight NonZero:Specified height)
+] //end button
+
+[IButton, "ZPlugin:SubtoolUpdater:Update Visible Subtools", "",
+    
+    [RoutineCall, GetFolderPath]
+
+    // Loop over subtools
+    // Get number of subtools
+    [VarSet, numSubtools, [SubToolGetCount]]
+    
+    // Init loop counter
+    [VarSet, loopIndex, 0]
+
+    [If, numSubtools > 0,
+        [Loop, numSubtools,
+            
+            // Select subtool
+            [SubToolSelect, loopIndex]
+
+            [VarSet, isVisible, 0]
+            [VarSet, status, [SubToolGetStatus]]
+
+            // if visible 
+            [If, [Var, status]&0x1 == 0x1,
+
+                // Get current subtool name/path
+                [VarSet, subtoolName, [IGetTitle, Tool:Subtool:ItemInfo]]
+
+                [RoutineCall, findObjFile]
+
+                // If file exists, import obj file
+                [If, objFound,
+                    [RoutineCall, importObj]
+                ]
+            , // else
+                // do nothing
+            ]
+            [VarInc, loopIndex]
+        ] // end loop
+    ] // end if
+    ,
+    0, // Initially Disabled? (0:Enabled(ByDefault) NonZero:Disabled)
+    1, // 0:AutoWidth NonZero:Specified width)
+    , // Optional hotkey
+    , // Optional button icon (.psd .bmp + .pct for Mac Systems)
+    32 // Button height in pixels (0:AutoHeight NonZero:Specified height)
+] //end button
