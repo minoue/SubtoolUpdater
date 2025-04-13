@@ -1,14 +1,9 @@
 #ifndef objInfo_hpp
 #define objInfo_hpp
 
-#ifdef _WIN32
 #include <windows.h>
-#define EXPORT __declspec(dllexport)
-#endif
 
-#ifdef __APPLE__
-#define EXPORT __attribute__((visibility("default")))
-#endif
+#define EXPORT __declspec(dllexport)
 
 #ifdef __cplusplus
 extern "C" {
