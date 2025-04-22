@@ -46,7 +46,7 @@
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-[ISubPalette,"ZPlugin:SubtoolUpdater"]
+[ISubPalette,"ZPlugin:Subtool Updater"]
 
 [RoutineDef, findObjFile,
     // commands
@@ -132,7 +132,7 @@
 // Update only current subtool.
 // If there is an obj file with same name as subtools, imort it.  
 // http://docs.pixologic.com/user-guide/customizing-zbrush/zscripting/zfileutils/#selectFolder
-[IButton, "ZPlugin:SubtoolUpdater:Update current Subtool", "",
+[IButton, "ZPlugin:Subtool Updater:Update current Subtool", "",
     
     [RoutineCall, GetFolderPath]
     
@@ -158,7 +158,7 @@
 // Update all subtools
 // If there are obj files with same names as subtools in the selected folder,
 // import all of them.
-[IButton, "ZPlugin:SubtoolUpdater:Update All Subtools", "",
+[IButton, "ZPlugin:Subtool Updater:Update All Subtools", "",
     
     [RoutineCall, GetFolderPath]
 
@@ -195,7 +195,7 @@
     32 // Button height in pixels (0:AutoHeight NonZero:Specified height)
 ] //end button
 
-[IButton, "ZPlugin:SubtoolUpdater:Update Visible Subtools", "",
+[IButton, "ZPlugin:Subtool Updater:Update Visible Subtools", "",
     
     [RoutineCall, GetFolderPath]
 
